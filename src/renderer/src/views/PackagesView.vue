@@ -6,6 +6,7 @@ import type { PackageStatus, DirEntry } from "../../../shared/types";
 // =========== 状态 ===========
 const packages = ref<PackageStatus[]>([]);
 const selectedPkg = ref("");
+const searchQuery = ref("");
 const activeTab = ref<"overview" | "files" | "targets">("overview");
 const statusMessage = ref("");
 const syncing = ref(false);
@@ -41,6 +42,12 @@ const newDirPath = ref("");
 const pulling = ref(false);
 
 // =========== 计算属性 ===========
+const filteredPackages = computed(() => {
+  if (!searchQuery.value) return packages.value;
+  const q = searchQuery.value.toLowerCase();
+  return packages.value.filter((p) => p.pkg.name.toLowerCase().includes(q));
+});
+
 const currentPkgStatus = computed(() => {
   return packages.value.find((p) => p.pkg.name === selectedPkg.value);
 });
@@ -432,9 +439,17 @@ onUnmounted(() => {
           <button class="btn btn-sm btn-outline" @click="showCreateDialog = true">+ 新增</button>
         </div>
 
+        <div class="package-filter">
+          <input
+            v-model="searchQuery"
+            class="input search-input"
+            placeholder="搜索 文件/目录/Git 包..."
+          />
+        </div>
+
         <div class="package-list">
           <div
-            v-for="ps in packages"
+            v-for="ps in filteredPackages"
             :key="ps.pkg.name"
             class="package-item"
             :class="{ active: selectedPkg === ps.pkg.name }"
@@ -461,6 +476,9 @@ onUnmounted(() => {
           <div v-if="packages.length === 0" class="empty-state">
             <p>暂无同步包</p>
             <p class="hint">点击「+ 新增」创建你的第一个同步包</p>
+          </div>
+          <div v-else-if="filteredPackages.length === 0" class="empty-state">
+            <p>未找到匹配的包</p>
           </div>
         </div>
 
@@ -986,8 +1004,31 @@ onUnmounted(() => {
 .source-panel {
   width: 280px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
   background: #1e1e2e;
   border-right: 1px solid #313244;
+}
+
+.package-filter {
+  padding: 8px 12px;
+  border-bottom: 1px solid #313244;
+}
+
+.search-input {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: #181825;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  color: #cdd6f4;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  border-color: #89b4fa;
 }
 
 .package-list {
