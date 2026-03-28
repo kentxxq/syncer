@@ -86,21 +86,41 @@ function checkDirTargetStatus(pkg: Package, targetPath: string, config: SyncConf
   const pkgDir = getPackageDir(pkg.name);
   if (!fs.existsSync(pkgDir)) return "missing";
   if (!fs.existsSync(resolved)) return "missing";
-  return compareDirs(pkgDir, resolved) ? "synced" : "outdated";
+  const targetDef = pkg.targets.find((t) => t.path === targetPath);
+  return compareDirs(pkgDir, resolved, config, targetDef?.template !== false)
+    ? "synced"
+    : "outdated";
 }
 
 /** 递归对比两个目录内容是否一致 */
-function compareDirs(srcDir: string, dstDir: string): boolean {
+function compareDirs(
+  srcDir: string,
+  dstDir: string,
+  config?: SyncConfig,
+  template?: boolean,
+): boolean {
   if (!fs.existsSync(srcDir) || !fs.existsSync(dstDir)) return false;
   const srcEntries = fs.readdirSync(srcDir, { withFileTypes: true });
   for (const entry of srcEntries) {
     const srcPath = path.join(srcDir, entry.name);
     const dstPath = path.join(dstDir, entry.name);
     if (entry.isDirectory()) {
-      if (!compareDirs(srcPath, dstPath)) return false;
+      if (!compareDirs(srcPath, dstPath, config, template)) return false;
     } else {
       if (!fs.existsSync(dstPath)) return false;
-      if (fs.readFileSync(srcPath, "utf-8") !== fs.readFileSync(dstPath, "utf-8")) return false;
+      if (template && config) {
+        const srcContent = fs.readFileSync(srcPath, "utf-8");
+        if (srcContent.indexOf("\0") === -1) {
+          try {
+            const rendered = renderTemplate(srcContent, config);
+            if (rendered !== fs.readFileSync(dstPath, "utf-8")) return false;
+            continue;
+          } catch {
+            // 解析失败时回退到二进制比对
+          }
+        }
+      }
+      if (!fs.readFileSync(srcPath).equals(fs.readFileSync(dstPath))) return false;
     }
   }
   return true;
@@ -190,20 +210,32 @@ function syncDirPackage(pkg: Package, config: SyncConfig): void {
 
   for (const target of pkg.targets) {
     const resolved = resolveTargetPath(target.path, config);
-    copyDirRecursive(pkgDir, resolved);
+    copyDirRecursive(pkgDir, resolved, config, target.template !== false);
   }
 }
 
 /** 递归复制目录 */
-function copyDirRecursive(src: string, dst: string): void {
+function copyDirRecursive(src: string, dst: string, config?: SyncConfig, template?: boolean): void {
   if (!fs.existsSync(dst)) fs.mkdirSync(dst, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const dstPath = path.join(dst, entry.name);
     if (entry.isDirectory()) {
-      copyDirRecursive(srcPath, dstPath);
+      copyDirRecursive(srcPath, dstPath, config, template);
     } else {
+      if (template && config) {
+        const srcContent = fs.readFileSync(srcPath, "utf-8");
+        if (srcContent.indexOf("\0") === -1) {
+          try {
+            const rendered = renderTemplate(srcContent, config);
+            fs.writeFileSync(dstPath, rendered, "utf-8");
+            continue;
+          } catch {
+            // 渲染异常时跳过，回退到二进制拷贝
+          }
+        }
+      }
       fs.copyFileSync(srcPath, dstPath);
     }
   }
