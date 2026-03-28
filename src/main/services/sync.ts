@@ -28,12 +28,17 @@ export function writePackageFile(pkgName: string, content: string, filePath?: st
   fs.writeFileSync(absPath, content, "utf-8");
 }
 
-/** 删除包内指定文件 */
-export function deletePackageFile(pkgName: string, filePath: string): void {
+/** 删除包内指定条目（文件或目录） */
+export function deletePackageEntry(pkgName: string, entryPath: string): void {
   const pkgDir = getPackageDir(pkgName);
-  const absPath = path.join(pkgDir, filePath);
+  const absPath = path.join(pkgDir, entryPath);
   if (fs.existsSync(absPath)) {
-    fs.unlinkSync(absPath);
+    const stats = fs.statSync(absPath);
+    if (stats.isDirectory()) {
+      fs.rmSync(absPath, { recursive: true, force: true });
+    } else {
+      fs.unlinkSync(absPath);
+    }
     // 清理空父目录
     let dir = path.dirname(absPath);
     while (dir !== pkgDir && fs.existsSync(dir)) {

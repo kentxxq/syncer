@@ -298,16 +298,18 @@ async function createNewDir(): Promise<void> {
   }
 }
 
-async function deleteFile(name: string): Promise<void> {
+async function deleteEntry(name: string, type: "file" | "directory"): Promise<void> {
   const filePath = fullPath(name);
-  if (!confirm(`确认删除文件 "${name}"？`)) return;
+  const typeLabel = type === "directory" ? "目录" : "文件";
+  if (!confirm(`确认删除${typeLabel} "${name}"${type === "directory" ? "及其所有内容" : ""}？`))
+    return;
   try {
     await window.api.deletePackageFile(selectedPkg.value, filePath);
     await loadDirEntries();
     showStatus(`已删除: ${name}`);
   } catch (e) {
-    console.error("删除文件失败:", e);
-    showStatus("删除文件失败");
+    console.error(`删除${typeLabel}失败:`, e);
+    showStatus(`删除${typeLabel}失败`);
   }
 }
 
@@ -787,6 +789,16 @@ onUnmounted(() => {
                   <template v-if="entry.type === 'directory'">
                     <span class="file-tree-icon">📁</span>
                     <span class="file-tree-name dir-name">{{ entry.name }}</span>
+                    <div class="file-tree-actions">
+                      <button
+                        v-if="!isReadOnly"
+                        class="icon-btn danger"
+                        title="删除目录"
+                        @click.stop="deleteEntry(entry.name, 'directory')"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                     <span class="dir-arrow">→</span>
                   </template>
 
@@ -806,7 +818,7 @@ onUnmounted(() => {
                         v-if="!isReadOnly"
                         class="icon-btn danger"
                         title="删除"
-                        @click.stop="deleteFile(entry.name)"
+                        @click.stop="deleteEntry(entry.name, 'file')"
                       >
                         🗑️
                       </button>

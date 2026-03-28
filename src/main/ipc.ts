@@ -12,7 +12,7 @@ import { renderTemplate } from "./services/template";
 import {
   readPackageFile,
   writePackageFile,
-  deletePackageFile,
+  deletePackageEntry,
   createPackageDir,
   readTargetFile,
   listPackageStatuses,
@@ -63,7 +63,7 @@ export function registerIpcHandlers(): void {
     },
   );
   ipcMain.handle("package:delete-file", (_e, pkgName: string, filePath: string) => {
-    deletePackageFile(pkgName, filePath);
+    deletePackageEntry(pkgName, filePath);
     notifyMainWindowRefresh();
   });
   ipcMain.handle("package:create-dir", (_e, pkgName: string, dirPath: string) => {
