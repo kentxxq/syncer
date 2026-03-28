@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import MonacoEditor from "../components/MonacoEditor.vue";
-import type { PackageStatus, DirEntry } from "../../../shared/types";
+import SkillsImportDialog from "../components/SkillsImportDialog.vue";
+import { AGENT_TARGETS } from "../../../shared/agents";
+import type { PackageStatus, DirEntry, AgentTarget } from "../../../shared/types";
 
 // =========== 状态 ===========
 const packages = ref<PackageStatus[]>([]);
@@ -22,6 +24,13 @@ const gitBranch = ref("main");
 // 添加目标弹窗
 const showAddTarget = ref(false);
 const newTargetPath = ref("");
+
+// Skills 导入向导
+const showSkillsImport = ref(false);
+
+// 目标路径建议
+const showQuickAgents = ref(false);
+const selectedAgents = ref<Set<string>>(new Set());
 
 // 目录导航（目录包）
 const currentPath = ref("");
@@ -148,6 +157,57 @@ function resetCreateForm(): void {
   gitSubPath.value = "";
   gitBranch.value = "main";
   createMode.value = "file";
+}
+
+async function onSkillsImported(): Promise<void> {
+  await loadPackages();
+}
+
+// 根据输入内容过滤路径建议
+const targetSuggestions = computed(() => {
+  const q = newTargetPath.value.toLowerCase().trim();
+  if (!q) return [];
+  return AGENT_TARGETS.filter(
+    (a) =>
+      a.label.toLowerCase().includes(q) ||
+      a.id.toLowerCase().includes(q) ||
+      a.globalPath.toLowerCase().includes(q),
+  ).slice(0, 6);
+});
+
+function applySuggestion(agent: AgentTarget): void {
+  // Git 来源的包，sync 层会自动追加包名子目录，此处只填父目录
+  newTargetPath.value = agent.globalPath.replace("~", "{{home}}");
+}
+
+function toggleAgent(id: string): void {
+  if (selectedAgents.value.has(id)) {
+    selectedAgents.value.delete(id);
+  } else {
+    selectedAgents.value.add(id);
+  }
+  selectedAgents.value = new Set(selectedAgents.value);
+}
+
+async function batchAddAgentTargets(): Promise<void> {
+  if (selectedAgents.value.size === 0 || !selectedPkg.value) return;
+  const count = selectedAgents.value.size;
+  for (const agentId of selectedAgents.value) {
+    const agent = AGENT_TARGETS.find((a) => a.id === agentId);
+    if (!agent) continue;
+    // Git 来源的包，sync 层会自动追加包名子目录，此处只填父目录
+    const targetPath = agent.globalPath.replace("~", "{{home}}");
+    try {
+      await window.api.addTarget(selectedPkg.value, targetPath);
+    } catch {
+      // 重复添加等错误直接跳过
+    }
+  }
+  showQuickAgents.value = false;
+  showAddTarget.value = false;
+  selectedAgents.value = new Set();
+  await loadPackages();
+  showStatus(`已批量添加 ${count} 个 Agent 目标`);
 }
 
 async function deletePkg(name: string): Promise<void> {
@@ -436,7 +496,10 @@ onUnmounted(() => {
       <section class="panel source-panel">
         <div class="panel-header">
           <h2>同步包</h2>
-          <button class="btn btn-sm btn-outline" @click="showCreateDialog = true">+ 新增</button>
+          <div class="panel-header-actions">
+            <button class="btn btn-sm btn-outline" @click="showSkillsImport = true">🧩 导入 Skills</button>
+            <button class="btn btn-sm btn-outline" @click="showCreateDialog = true">+ 新增</button>
+          </div>
         </div>
 
         <div class="package-filter">
@@ -874,17 +937,72 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- 新增目标弹窗 -->
+            <!-- 新增目标弹窗（带路径建议） -->
             <div v-if="showAddTarget" class="modal-overlay" @click.self="showAddTarget = false">
-              <div class="modal">
+              <div class="modal target-modal">
                 <h3>新增同步目标</h3>
-                <input
-                  v-model="newTargetPath"
-                  class="input"
-                  placeholder="目标路径（如 {{home}}/.zshrc）"
-                  @keyup.enter="addNewTarget"
-                  autofocus
-                />
+
+                <div class="target-input-wrapper">
+                  <input
+                    v-model="newTargetPath"
+                    class="input"
+                    placeholder="目标路径（如 {{home}}/.zshrc）或输入工具名搜索"
+                    @keyup.enter="addNewTarget"
+                    autofocus
+                  />
+
+                  <!-- 智能建议下拉 -->
+                  <div v-if="targetSuggestions.length > 0" class="suggestions-dropdown">
+                    <div
+                      v-for="agent in targetSuggestions"
+                      :key="agent.id"
+                      class="suggestion-item"
+                      @click="applySuggestion(agent)"
+                    >
+                      <span class="suggestion-label">{{ agent.label }}</span>
+                      <span class="suggestion-path">{{ agent.globalPath }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 快捷 Agent 面板切换 -->
+                <button
+                  class="btn btn-sm btn-outline toggle-quick"
+                  @click="showQuickAgents = !showQuickAgents"
+                >
+                  {{ showQuickAgents ? "▲ 收起快捷面板" : "▼ 批量添加到 AI 工具" }}
+                </button>
+
+                <!-- 快捷 Agent 面板 -->
+                <div v-if="showQuickAgents" class="quick-agents-panel">
+                  <p class="quick-hint">
+                    勾选后点击「批量添加」，自动为每个工具创建全局 skills 目标。
+                  </p>
+                  <div class="quick-agents-grid">
+                    <div
+                      v-for="agent in AGENT_TARGETS"
+                      :key="agent.id"
+                      class="quick-agent-item"
+                      @click="toggleAgent(agent.id)"
+                    >
+                      <span class="checkbox" :class="{ checked: selectedAgents.has(agent.id) }">
+                        {{ selectedAgents.has(agent.id) ? "☑" : "☐" }}
+                      </span>
+                      <div class="quick-agent-info">
+                        <span class="quick-agent-name">{{ agent.label }}</span>
+                        <span class="quick-agent-path">{{ agent.globalPath }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    class="btn btn-sm btn-success"
+                    :disabled="selectedAgents.size === 0"
+                    @click="batchAddAgentTargets"
+                  >
+                    批量添加 {{ selectedAgents.size }} 个目标
+                  </button>
+                </div>
+
                 <div class="modal-actions">
                   <button class="btn btn-sm btn-outline" @click="showAddTarget = false">
                     取消
@@ -903,6 +1021,13 @@ onUnmounted(() => {
         </div>
       </section>
     </div>
+
+    <!-- Skills 导入向导 -->
+    <SkillsImportDialog
+      v-if="showSkillsImport"
+      @close="showSkillsImport = false"
+      @imported="onSkillsImported"
+    />
   </div>
 </template>
 
@@ -989,6 +1114,11 @@ onUnmounted(() => {
   align-items: center;
   padding: 14px 16px;
   border-bottom: 1px solid #313244;
+}
+
+.panel-header-actions {
+  display: flex;
+  gap: 6px;
 }
 
 .panel-header h2 {
@@ -1779,5 +1909,140 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
+}
+
+/* 目标路径建议 */
+.target-modal {
+  min-width: 480px;
+}
+
+.target-input-wrapper {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #181825;
+  border: 1px solid #313244;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  z-index: 10;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.suggestion-item:hover {
+  background: #313244;
+}
+
+.suggestion-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.suggestion-path {
+  font-size: 11px;
+  color: #585b70;
+  font-family: monospace;
+}
+
+/* 快捷 Agent 面板 */
+.toggle-quick {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.quick-agents-panel {
+  border: 1px solid #313244;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #181825;
+}
+
+.quick-hint {
+  font-size: 11px;
+  color: #6c7086;
+  margin: 0 0 10px 0;
+}
+
+.quick-agents-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+.quick-agent-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s ease;
+}
+
+.quick-agent-item:hover {
+  background: #232334;
+}
+
+.quick-agent-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.quick-agent-name {
+  font-size: 12px;
+  color: #cdd6f4;
+  font-weight: 500;
+}
+
+.quick-agent-path {
+  font-size: 10px;
+  color: #585b70;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.checkbox {
+  font-size: 16px;
+  color: #6c7086;
+  flex-shrink: 0;
+}
+
+.checkbox.checked {
+  color: #89b4fa;
+}
+
+.btn-success {
+  background: #a6e3a1;
+  color: #1e1e2e;
+  width: 100%;
+}
+
+.btn-success:hover:not(:disabled) {
+  background: #94e2d5;
 }
 </style>

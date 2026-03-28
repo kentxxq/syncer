@@ -110,9 +110,39 @@ export interface SyncerAPI {
   // === 窗口 ===
   openEditor: (pkgName: string, filePath?: string, readOnly?: boolean) => Promise<void>;
 
+  // === Skills 导入 ===
+  scanSkills: (gitUrl: string, branch?: string) => Promise<SkillInfo[]>;
+  batchImportSkills: (
+    gitUrl: string,
+    branch: string,
+    skills: { name: string; path: string }[],
+  ) => Promise<void>;
+
   // === 事件 ===
   onRefresh: (callback: () => void) => void;
 
   // === 应用信息 ===
   getAppVersion: () => Promise<string>;
+}
+
+/** 从仓库中扫描到的 Skill 信息 */
+export interface SkillInfo {
+  /** skill 名称（来自 SKILL.md frontmatter 的 name 字段） */
+  name: string;
+  /** skill 描述（来自 SKILL.md frontmatter 的 description 字段） */
+  description: string;
+  /** skill 在仓库中的相对路径（如 skills/brainstorming） */
+  path: string;
+}
+
+/** AI 编码工具/Agent 路径定义 */
+export interface AgentTarget {
+  /** Agent 名称（如 Claude Code, Cursor） */
+  label: string;
+  /** Agent 标识符 */
+  id: string;
+  /** 全局 skills 路径（~ 开头） */
+  globalPath: string;
+  /** 项目级 skills 路径（相对路径） */
+  projectPath: string;
 }

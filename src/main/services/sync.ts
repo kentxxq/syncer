@@ -82,7 +82,9 @@ function checkFileTargetStatus(pkg: Package, targetPath: string, config: SyncCon
 
 /** 检查目录包某个目标的同步状态 */
 function checkDirTargetStatus(pkg: Package, targetPath: string, config: SyncConfig): SyncStatus {
-  const resolved = resolveTargetPath(targetPath, config);
+  let resolved = resolveTargetPath(targetPath, config);
+  // Git 来源的目录包：目标路径自动追加包名子目录（匹配 IDE skills 目录结构）
+  if (pkg.origin) resolved = path.join(resolved, pkg.name);
   const pkgDir = getPackageDir(pkg.name);
   if (!fs.existsSync(pkgDir)) return "missing";
   if (!fs.existsSync(resolved)) return "missing";
@@ -133,9 +135,12 @@ export function getPackageStatus(pkg: Package): PackageStatus {
   const config = loadConfig();
   const targetStatuses: TargetStatus[] = pkg.targets.map((t) => {
     const checkFn = pkg.type === "file" ? checkFileTargetStatus : checkDirTargetStatus;
+    let resolvedPath = resolveTargetPath(t.path, config);
+    // Git 来源的目录包：显示实际同步目标（含包名子目录）
+    if (pkg.type === "directory" && pkg.origin) resolvedPath = path.join(resolvedPath, pkg.name);
     return {
       path: t.path,
-      resolvedPath: resolveTargetPath(t.path, config),
+      resolvedPath,
       status: checkFn(pkg, t.path, config),
       template: t.template !== false,
     };
@@ -209,7 +214,9 @@ function syncDirPackage(pkg: Package, config: SyncConfig): void {
   if (!fs.existsSync(pkgDir)) return;
 
   for (const target of pkg.targets) {
-    const resolved = resolveTargetPath(target.path, config);
+    let resolved = resolveTargetPath(target.path, config);
+    // Git 来源的目录包：目标路径自动追加包名子目录（匹配 IDE skills 目录结构）
+    if (pkg.origin) resolved = path.join(resolved, pkg.name);
     copyDirRecursive(pkgDir, resolved, config, target.template !== false);
   }
 }

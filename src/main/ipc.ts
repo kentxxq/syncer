@@ -21,6 +21,7 @@ import {
   executeSync,
 } from "./services/sync";
 import { importFromGit, checkUpdate, pullUpdate, cleanUnusedGitCache } from "./services/git";
+import { scanSkills, batchImportSkills } from "./services/skills";
 import { createEditorWindow, notifyMainWindowRefresh } from "./index";
 import type { SyncConfig } from "../shared/types";
 
@@ -89,6 +90,18 @@ export function registerIpcHandlers(): void {
   });
   ipcMain.handle("file:read-target", (_e, targetPath: string) => readTargetFile(targetPath));
   ipcMain.handle("sync:execute", (_e, pkgName?: string) => executeSync(pkgName));
+
+  // === Skills 导入 ===
+  ipcMain.handle("skills:scan", (_e, gitUrl: string, branch?: string) =>
+    scanSkills(gitUrl, branch),
+  );
+  ipcMain.handle(
+    "skills:batch-import",
+    async (_e, gitUrl: string, branch: string, skills: { name: string; path: string }[]) => {
+      await batchImportSkills(gitUrl, branch, skills);
+      cleanUnusedGitCache();
+    },
+  );
 
   // === Git ===
   ipcMain.handle("git:check-update", (_e, pkgName: string) => checkUpdate(pkgName));

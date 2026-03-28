@@ -39,6 +39,11 @@ const syncerApi: SyncerAPI = {
   renderTemplate: (content) => ipcRenderer.invoke("template:render", content),
   readTargetFile: (targetPath) => ipcRenderer.invoke("file:read-target", targetPath),
 
+  // Skills 导入
+  scanSkills: (gitUrl, branch?) => ipcRenderer.invoke("skills:scan", gitUrl, branch),
+  batchImportSkills: (gitUrl, branch, skills) =>
+    ipcRenderer.invoke("skills:batch-import", gitUrl, branch, skills),
+
   // Git
   checkUpdate: (pkgName) => ipcRenderer.invoke("git:check-update", pkgName),
   pullUpdate: (pkgName) => ipcRenderer.invoke("git:pull-update", pkgName),
