@@ -4,6 +4,7 @@ import PackagesView from "./views/PackagesView.vue";
 import EditorView from "./views/EditorView.vue";
 import SettingsView from "./views/SettingsView.vue";
 import InfoView from "./views/InfoView.vue";
+import ToastContainer from "./components/ToastContainer.vue";
 
 // hash 路由
 const route = ref({ page: "main", params: [] as string[], readOnly: false });
@@ -76,6 +77,7 @@ onMounted(() => {
       <SettingsView v-else-if="activeNav === 'settings'" />
       <InfoView v-else-if="activeNav === 'info'" />
     </main>
+    <ToastContainer />
   </div>
 </template>
 

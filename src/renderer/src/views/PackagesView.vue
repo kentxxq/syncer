@@ -4,13 +4,13 @@ import MonacoEditor from "../components/MonacoEditor.vue";
 import SkillsImportDialog from "../components/SkillsImportDialog.vue";
 import { AGENT_TARGETS } from "../../../shared/agents";
 import type { PackageStatus, DirEntry, AgentTarget } from "../../../shared/types";
+import { toast } from "../utils/toast";
 
 // =========== 状态 ===========
 const packages = ref<PackageStatus[]>([]);
 const selectedPkg = ref("");
 const searchQuery = ref("");
 const activeTab = ref<"overview" | "files" | "targets">("overview");
-const statusMessage = ref("");
 const syncing = ref(false);
 
 // 新增弹窗
@@ -135,10 +135,10 @@ async function createNewPackage(): Promise<void> {
       if (!url || !sub) return;
       showStatus("正在从 Git 导入...");
       await window.api.importFromGit(name, url, sub, gitBranch.value || "main");
-      showStatus(`已导入: ${name}`);
+      showStatus(`已导入: ${name}`, "success");
     } else {
       await window.api.createPackage(name, createMode.value);
-      showStatus(`已创建: ${name}`);
+      showStatus(`已创建: ${name}`, "success");
     }
     showCreateDialog.value = false;
     resetCreateForm();
@@ -147,7 +147,7 @@ async function createNewPackage(): Promise<void> {
   } catch (e: any) {
     console.error("创建包（或导入）失败:", e);
     const msg = e.message ? e.message.split("Error:").pop()?.trim() || e.message : "未知错误";
-    showStatus(`失败: ${msg}`);
+    showStatus(`失败: ${msg}`, "error");
   }
 }
 
@@ -161,6 +161,7 @@ function resetCreateForm(): void {
 
 async function onSkillsImported(): Promise<void> {
   await loadPackages();
+  showStatus("Skills 导入成功", "success");
 }
 
 // 根据输入内容过滤路径建议
@@ -207,7 +208,7 @@ async function batchAddAgentTargets(): Promise<void> {
   showAddTarget.value = false;
   selectedAgents.value = new Set();
   await loadPackages();
-  showStatus(`已批量添加 ${count} 个 Agent 目标`);
+  showStatus(`已批量添加 ${count} 个 Agent 目标`, "success");
 }
 
 async function deletePkg(name: string): Promise<void> {
@@ -219,7 +220,7 @@ async function deletePkg(name: string): Promise<void> {
       fileContent.value = "";
     }
     await loadPackages();
-    showStatus(`已删除: ${name}`);
+    showStatus(`已删除: ${name}`, "success");
   } catch (e) {
     console.error("删除包失败:", e);
   }
@@ -275,10 +276,10 @@ async function createNewFile(): Promise<void> {
     showNewFileDialog.value = false;
     newFilePath.value = "";
     await loadDirEntries();
-    showStatus(`已创建文件: ${fileName}`);
+    showStatus(`已创建文件: ${fileName}`, "success");
   } catch (e) {
     console.error("创建文件失败:", e);
-    showStatus("创建文件失败");
+    showStatus("创建文件失败", "error");
   }
 }
 
@@ -291,10 +292,10 @@ async function createNewDir(): Promise<void> {
     showNewDirDialog.value = false;
     newDirPath.value = "";
     await loadDirEntries();
-    showStatus(`已创建目录: ${dirName}`);
+    showStatus(`已创建目录: ${dirName}`, "success");
   } catch (e) {
     console.error("创建目录失败:", e);
-    showStatus("创建目录失败");
+    showStatus("创建目录失败", "error");
   }
 }
 
@@ -306,10 +307,10 @@ async function deleteEntry(name: string, type: "file" | "directory"): Promise<vo
   try {
     await window.api.deletePackageFile(selectedPkg.value, filePath);
     await loadDirEntries();
-    showStatus(`已删除: ${name}`);
+    showStatus(`已删除: ${name}`, "success");
   } catch (e) {
     console.error(`删除${typeLabel}失败:`, e);
-    showStatus(`删除${typeLabel}失败`);
+    showStatus(`删除${typeLabel}失败`, "error");
   }
 }
 
@@ -322,7 +323,7 @@ async function addNewTarget(): Promise<void> {
     showAddTarget.value = false;
     newTargetPath.value = "";
     await loadPackages();
-    showStatus(`已添加目标: ${path}`);
+    showStatus(`已添加目标: ${path}`, "success");
   } catch (e) {
     console.error("添加目标失败:", e);
   }
@@ -333,7 +334,7 @@ async function removeTargetItem(targetPath: string): Promise<void> {
   try {
     await window.api.removeTarget(selectedPkg.value, targetPath);
     await loadPackages();
-    showStatus("已移除目标");
+    showStatus("已移除目标", "success");
   } catch (e) {
     console.error("移除目标失败:", e);
   }
@@ -346,10 +347,10 @@ async function syncCurrent(): Promise<void> {
   try {
     await window.api.executeSync(selectedPkg.value);
     await loadPackages();
-    showStatus(`同步完成: ${selectedPkg.value}`);
+    showStatus(`同步完成: ${selectedPkg.value}`, "success");
   } catch (e) {
     console.error("同步失败:", e);
-    showStatus("同步失败");
+    showStatus("同步失败", "error");
   } finally {
     syncing.value = false;
   }
@@ -360,10 +361,10 @@ async function syncAll(): Promise<void> {
   try {
     await window.api.executeSync();
     await loadPackages();
-    showStatus("全部同步完成");
+    showStatus("全部同步完成", "success");
   } catch (e) {
     console.error("同步失败:", e);
-    showStatus("同步失败");
+    showStatus("同步失败", "error");
   } finally {
     syncing.value = false;
   }
@@ -379,21 +380,18 @@ async function doUpdate(): Promise<void> {
     if (activeTab.value === "files") {
       await loadDirEntries();
     }
-    showStatus("更新完成");
+    showStatus("更新完成", "success");
   } catch (e) {
     console.error("更新失败:", e);
-    showStatus("更新失败");
+    showStatus("更新失败", "error");
   } finally {
     pulling.value = false;
   }
 }
 
 // =========== 工具 ===========
-function showStatus(msg: string): void {
-  statusMessage.value = msg;
-  setTimeout(() => {
-    statusMessage.value = "";
-  }, 3000);
+function showStatus(msg: string, type: "success" | "error" | "info" = "info"): void {
+  toast[type](msg);
 }
 
 function pkgIcon(ps: PackageStatus): string {
@@ -485,7 +483,6 @@ onUnmounted(() => {
         <span class="app-subtitle">同步包管理</span>
       </div>
       <div class="header-right">
-        <span v-if="statusMessage" class="status-toast">{{ statusMessage }}</span>
         <button class="btn btn-primary" @click="syncCurrent" :disabled="!selectedPkg || syncing">
           🔄 同步当前
         </button>
@@ -1083,27 +1080,6 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.status-toast {
-  font-size: 12px;
-  color: #a6e3a1;
-  padding: 4px 12px;
-  background: rgba(166, 227, 161, 0.1);
-  border-radius: 6px;
-  border: 1px solid rgba(166, 227, 161, 0.2);
-  animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* 内容区 */

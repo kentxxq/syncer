@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import MonacoEditor from "../components/MonacoEditor.vue";
+import { toast } from "../utils/toast";
 
 const props = defineProps<{
   pkgName: string;
@@ -9,7 +10,6 @@ const props = defineProps<{
 }>();
 
 const content = ref("");
-const saved = ref(false);
 
 const displayTitle = computed(() => {
   const prefix = props.readOnly ? "👁 查看" : "✏️ 编辑";
@@ -29,10 +29,7 @@ onMounted(async () => {
 async function save(): Promise<void> {
   try {
     await window.api.writePackageFile(props.pkgName, content.value, props.filePath);
-    saved.value = true;
-    setTimeout(() => {
-      saved.value = false;
-    }, 2000);
+    toast.success("已保存");
   } catch (e) {
     console.error("保存失败:", e);
   }
@@ -56,7 +53,6 @@ onMounted(() => {
       <span class="editor-title">{{ displayTitle }}</span>
       <div class="toolbar-right">
         <template v-if="!readOnly">
-          <span v-if="saved" class="save-toast">✓ 已保存</span>
           <button class="btn btn-primary" @click="save">💾 保存</button>
         </template>
         <span v-else class="readonly-badge">🔒 只读</span>
