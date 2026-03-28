@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from "vue";
 
-const systemVars = ref<Record<string, string>>({})
-const userVars = ref<Record<string, string>>({})
-const appVersion = ref('')
+const systemVars = ref<Record<string, string>>({});
+const userVars = ref<Record<string, string>>({});
+const appVersion = ref("");
 
 onMounted(async () => {
   try {
-    systemVars.value = await window.api.getSystemVariables()
-    const config = await window.api.loadConfig()
-    userVars.value = config.variables
-    appVersion.value = await window.api.getAppVersion()
+    systemVars.value = await window.api.getSystemVariables();
+    const config = await window.api.loadConfig();
+    userVars.value = config.variables;
+    appVersion.value = await window.api.getAppVersion();
   } catch (e) {
-    console.error('加载信息失败:', e)
+    console.error("加载信息失败:", e);
   }
-})
+});
 
 function varLabel(key: string): string {
-  return `\{\{${key}\}\}`
+  return `{{${key}}}`;
 }
 </script>
 
@@ -137,7 +137,7 @@ function varLabel(key: string): string {
 }
 
 .info-row.mono {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   font-size: 12px;
 }
 

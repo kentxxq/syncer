@@ -1,34 +1,34 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import PackagesView from './views/PackagesView.vue'
-import EditorView from './views/EditorView.vue'
-import SettingsView from './views/SettingsView.vue'
-import InfoView from './views/InfoView.vue'
+import { ref, computed, onMounted } from "vue";
+import PackagesView from "./views/PackagesView.vue";
+import EditorView from "./views/EditorView.vue";
+import SettingsView from "./views/SettingsView.vue";
+import InfoView from "./views/InfoView.vue";
 
 // hash 路由
-const route = ref({ page: 'main', params: [] as string[], readOnly: false })
+const route = ref({ page: "main", params: [] as string[], readOnly: false });
 
 function parseHash(): void {
-  const hash = window.location.hash.replace('#', '')
-  if (hash.startsWith('/editor/')) {
+  const hash = window.location.hash.replace("#", "");
+  if (hash.startsWith("/editor/")) {
     // /editor/pkgName 或 /editor/pkgName/filePath?readonly
-    const [pathPart, query] = hash.replace('/editor/', '').split('?')
-    const parts = pathPart.split('/').map(decodeURIComponent)
-    route.value = { page: 'editor', params: parts, readOnly: query === 'readonly' }
+    const [pathPart, query] = hash.replace("/editor/", "").split("?");
+    const parts = pathPart.split("/").map(decodeURIComponent);
+    route.value = { page: "editor", params: parts, readOnly: query === "readonly" };
   } else {
-    route.value = { page: 'main', params: [], readOnly: false }
+    route.value = { page: "main", params: [], readOnly: false };
   }
 }
 
-const currentPage = computed(() => route.value.page)
+const currentPage = computed(() => route.value.page);
 
 // 主窗口中的导航
-const activeNav = ref<'packages' | 'settings' | 'info'>('packages')
+const activeNav = ref<"packages" | "settings" | "info">("packages");
 
 onMounted(() => {
-  parseHash()
-  window.addEventListener('hashchange', parseHash)
-})
+  parseHash();
+  window.addEventListener("hashchange", parseHash);
+});
 </script>
 
 <template>
@@ -137,7 +137,7 @@ onMounted(() => {
 }
 
 .nav-item.active::before {
-  content: '';
+  content: "";
   position: absolute;
   left: -6px;
   top: 50%;

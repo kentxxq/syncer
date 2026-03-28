@@ -121,7 +121,7 @@
 }
 
 .setting-desc.mono {
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   color: #89b4fa;
 }
 

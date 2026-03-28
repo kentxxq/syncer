@@ -1,53 +1,53 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import MonacoEditor from '../components/MonacoEditor.vue'
+import { ref, computed, onMounted } from "vue";
+import MonacoEditor from "../components/MonacoEditor.vue";
 
 const props = defineProps<{
-  pkgName: string
-  filePath?: string
-  readOnly?: boolean
-}>()
+  pkgName: string;
+  filePath?: string;
+  readOnly?: boolean;
+}>();
 
-const content = ref('')
-const saved = ref(false)
+const content = ref("");
+const saved = ref(false);
 
 const displayTitle = computed(() => {
-  const prefix = props.readOnly ? '👁 查看' : '✏️ 编辑'
+  const prefix = props.readOnly ? "👁 查看" : "✏️ 编辑";
   return props.filePath
     ? `${prefix} - ${props.pkgName}/${props.filePath}`
-    : `${prefix} - ${props.pkgName}`
-})
+    : `${prefix} - ${props.pkgName}`;
+});
 
 onMounted(async () => {
   try {
-    content.value = await window.api.readPackageFile(props.pkgName, props.filePath)
+    content.value = await window.api.readPackageFile(props.pkgName, props.filePath);
   } catch (e) {
-    console.error('读取文件失败:', e)
+    console.error("读取文件失败:", e);
   }
-})
+});
 
 async function save(): Promise<void> {
   try {
-    await window.api.writePackageFile(props.pkgName, content.value, props.filePath)
-    saved.value = true
+    await window.api.writePackageFile(props.pkgName, content.value, props.filePath);
+    saved.value = true;
     setTimeout(() => {
-      saved.value = false
-    }, 2000)
+      saved.value = false;
+    }, 2000);
   } catch (e) {
-    console.error('保存失败:', e)
+    console.error("保存失败:", e);
   }
 }
 
 function handleKeydown(e: KeyboardEvent): void {
-  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-    e.preventDefault()
-    if (!props.readOnly) save()
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+    e.preventDefault();
+    if (!props.readOnly) save();
   }
 }
 
 onMounted(() => {
-  window.addEventListener('keydown', handleKeydown)
-})
+  window.addEventListener("keydown", handleKeydown);
+});
 </script>
 
 <template>
