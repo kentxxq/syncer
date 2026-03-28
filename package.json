@@ -1,6 +1,9 @@
 {
   "name": "syncer",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=24"
+  },
   "description": "An Electron application with Vue and TypeScript",
   "homepage": "https://electron-vite.org",
   "author": "example.com",
