@@ -67,7 +67,6 @@ jobs:
           name: build-artifacts-${{ matrix.os }}
           path: |
             dist/*.dmg
-            dist/*.zip
             dist/*.exe
             dist/*.AppImage
             dist/*.deb
@@ -84,18 +83,28 @@ jobs:
       - name: Prepare Release Files
         run: |
           mkdir release
-          find all-artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.zip" \) -exec cp {} release/ \;
+          find all-artifacts -type f \( -name "*.dmg" -o -name "*.exe" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release/ \;
           ls -R release/
+
+      # 删除旧的 release assets，确保每次发布是干净的
+      - name: Delete old release assets
+        uses: mknejp/delete-release-assets@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: latest
+          assets: "*"
+          fail-if-no-release: false
+          fail-if-no-assets: false
 
       - name: Create or Update Latest Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest Build
-          body: "This is the latest automated build from the main branch."
+          body: "自动构建产物，来自 main 分支的最新提交。"
           files: release/*
           prerelease: false
           draft: false
-          make_latest: legacy
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
