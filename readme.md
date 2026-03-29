@@ -1,4 +1,4 @@
-# syncer-temp
+# syncer
 
 An Electron application with Vue and TypeScript
 
